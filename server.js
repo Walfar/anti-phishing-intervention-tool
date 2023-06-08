@@ -8,17 +8,15 @@ const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database('./src/data/database.sqlite');
 
 //helper functions
-function deleteTable() {
-  const query = 'DROP TABLE IF EXISTS Participants';
-
-  db.run(query, [], (err) => {
+function clearTable() {
+  db.run(`DELETE FROM Participants`, (err) => {
     if (err) {
       console.error(err.message);
-      return;
+    } else {
+      console.log(`Participants cleared successfully!`);
     }
-    console.log('Table deleted successfully!');
   });
-} 
+}
 
 /* YES There are a LOT of fields ! These fields are not really necessary as they can already be accessed via the Qualtrics results, but I still wanted to have them in the DB for simplicity
 The main fields that you will find in the DB that wouldn't be in Qualtrics would be the theory_score, practical_score and category. "training_done" boolean is used for
@@ -73,31 +71,28 @@ function updateParticipant(prolific_id, field, value) {
 
 function getElementByProlificId(prolific_id) {
   return new Promise((resolve, reject) => {
-    db.get('SELECT * FROM Participants WHERE prolific_id = ?', [prolific_id], (err, row) => {
-      if (err) {
-        console.error(err.message);
-        reject(err);
-      } else {
-        if (row) {
-          resolve(row);
+    try {
+      db.get('SELECT * FROM Participants WHERE prolific_id = ?', [prolific_id], (err, row) => {
+        if (err) {
+          console.error(err.message);
+          reject(err);
         } else {
-          console.log('No participant found with this id');
-          resolve(null); // Resolve with null when no participant found
+          if (row) {
+            resolve(row);
+          } else {
+            console.log('No participant found with this id');
+            resolve(null); // Resolve with null when no participant found
+          }
         }
-      }
-    });
-  });
-}
-
-function clearTable() {
-  db.run(`DELETE FROM Participants`, (err) => {
-    if (err) {
-      console.error(err.message);
-    } else {
-      console.log(`Participants cleared successfully!`);
+      });
+    } catch (error) {
+      console.log("rejecting error");
+      console.error(error.message);
+      reject(error);
     }
   });
 }
+
 
 function computePracticalScore(answ,resp) {
   return answ == resp ? 2 : 0;
@@ -112,6 +107,11 @@ function classifyMailQuantityCategory(quantity_mail) {
 }  
 
 function getPointsFromSelfReport(self_report) {
+  if (typeof self_report !== 'string') {
+    // Handle the case where self_report is not a string
+    console.log("Not a string");
+    return 0; 
+  }
   const arr = self_report.split(', ');
   var score = 0;
   for (let i = 0; i < 3; i++) {
@@ -128,19 +128,13 @@ function getPointsFromSelfReport(self_report) {
 
 function determineCategory(theory_score,practical_score,training_exp,self_report,frequency_mail,quantity_mail) {
   let category;
-    // Determine the user category based on the score. Theory score inferior to 11.55 means low knowledge. 
-  if (theory_score <=  13) {
+    // Determine the user category based on the score. Theory score inferior to 13 means low knowledge. 
+  if (theory_score < 20.5) {
     // theory questions will determine if a user has basic knowledge. In total, the user can get 39.5 points. If he has less than 1/3 correct, then he needs education.
     category = 0;
   } else {
       // compute the total score with both the theory score and practical score (total possible score is now 49.5)
-      var score = theory_score + practical_score
-      console.log("total score ", score);
-      console.log("practical score is", practical_score);
-      // again less than 1/3 on total is automatically low category
-      if (score < 16.5) {
-        category = 0;
-      } else {
+      var score = theory_score + practical_score;
         //We add a bonus if the user had previous training exp
         if (training_exp == "Yes, once") {
           score += 1; // small bonus because we don't know the nature of the training: how well-designed and efficient it was. The user also might have forgotten what he previously learned.
@@ -150,11 +144,10 @@ function determineCategory(theory_score,practical_score,training_exp,self_report
         // bonus from self report
         score += getPointsFromSelfReport(self_report);
         // If the user has less than half of the points, he is immediately sorted as needing training
-        if (score < 25) {
-          category = 1;
+        if (score < 27.5) {
+          category = 0;
         } else {
-          // if more than 3/4, high knowledge
-          if (score > 37) {
+          if (score >= 39.5) {
             // In this situation, the user is considered to have sufficient knowledge to be sorted as "high knowledge", only needing reminders
             category = 2;
           } else {
@@ -173,14 +166,13 @@ function determineCategory(theory_score,practical_score,training_exp,self_report
                category = 1;
             }
 
-        }
-      }       
+        }     
     }     
  } 
  return category;
 }
 
-/*
+/* Admin functions
 fastify.get("/deleteDB", function (request, reply) {
   deleteTable();
 })
@@ -198,6 +190,7 @@ fastify.get("/clearDB", function (request, reply) {
 })
 */
 
+
 // routes
 // default index page
 fastify.get("/", function (request, reply) {
@@ -213,16 +206,14 @@ fastify.post("/score", async function (request, reply) {
   const frequency_mail = classifyUseFrequencyCategory(request.body.frequency_mail);
   const quantity_mail = classifyMailQuantityCategory(request.body.quantity_mail); 
   var training_exp = request.body.training_exp;
-  const self_report = getPointsFromSelfReport(request.body.self_report);
-  
+  const self_report = request.body.self_report;
   const prolific_id = request.body.prolific_id;
   const session_id = request.body.session_id;
   const study_id = request.body.study_id;
-  console.log("prolific id is ", prolific_id);
   const practical_score = computePracticalScore(request.body.classify_q1,"Yes") + computePracticalScore(request.body.classify_q2,"Yes") + computePracticalScore(request.body.classify_q3,"Yes") + computePracticalScore(request.body.classify_q4,"No") + computePracticalScore(request.body.classify_q5,"Yes")
   const category = determineCategory(theory_score,practical_score,training_exp,self_report,frequency_mail,quantity_mail)
   // add this user to DB
-  addParticipant(prolific_id,session_id,study_id,category,theory_score,practical_score,training_exp,request.body.self_report,request.body.frequency_mail,request.body.quantity_mail,null,null,null,null,null,null,null,0)
+  addParticipant(prolific_id,session_id,study_id,category,theory_score,practical_score,training_exp,self_report,request.body.frequency_mail,request.body.quantity_mail,null,null,null,null,null,null,null,0)
   console.log("The category of the user is ",category);
 });
 
@@ -242,7 +233,6 @@ fastify.get("/base_page", async function (request, reply) {
 fastify.post("/end_training", async function (request, reply) {
   console.log("end training for:");
   const prolific_id = request.body.prolific_id;
-  console.log(prolific_id);
   updateParticipant(prolific_id, "training_done", 1);
 });
 
@@ -255,10 +245,15 @@ fastify.post("/end_study", async function (request, reply) {
     const theory_score = parseInt(request.body.score);
     const practical_score = computePracticalScore(request.body.classify_q1,"Yes") + computePracticalScore(request.body.classify_q2,"Yes") + computePracticalScore(request.body.classify_q3,"Yes") + computePracticalScore(request.body.classify_q4,"No") + computePracticalScore(request.body.classify_q5,"Yes")
     const row_ = await getElementByProlificId(prolific_id);
-    const category = determineCategory(theory_score,practical_score,row_.training_exp,row_.self_report,row_.frequency_mail,row_.quantity_mail);
+    let category;
+    if (row_) {
+      category = determineCategory(theory_score,practical_score,row_.training_exp,row_.self_report,row_.frequency_mail,row_.quantity_mail);       
+    } else {
+      category = determineCategory(theory_score,practical_score,"","","","");
+    }
     updateParticipant(prolific_id, "new_theory_score", theory_score);
     updateParticipant(prolific_id, "new_practical_score", practical_score);
-    updateParticipant(prolific_id, "new_category", category);
+    updateParticipant(prolific_id, "new_category", category); 
     
   } catch (error) {
     console.error(error);
@@ -272,20 +267,23 @@ fastify.post("/end_study", async function (request, reply) {
 // Get background task
 fastify.get('/bgtask', async (request, reply) => {
   const prolific_id = request.query.prolific_id;
+  console.log(prolific_id);
   // in case a user would try to access the background task without following the intended flow
   if (prolific_id == null) {
     reply.redirect("https://personalized-anti-phishing-web-app.glitch.me/base_page");
   }
   let category;
   let training_done;
-  try {
-    const row = await getElementByProlificId(prolific_id);
-    if (row) {
+  const row = await getElementByProlificId(prolific_id);
+  if (row) {
       category = row.category;
       training_done = row.training_done;
-    }
-  } catch (error) {
-    console.error(error);
+  } else {
+      console.log("did not manage to find participant");
+      category = Math.floor(Math.random() * 3);
+      console.log(category);
+      training_done = 0;
+      addParticipant(prolific_id,null,null,category,null,null,"","","","",null,null,null,null,null,null,null,0)
   }
   // This is the integrated figma. Could be stored in a seperate HTML file, but might miss the JS variables, TODO for modularization
   const html = `  
@@ -322,17 +320,24 @@ fastify.get('/bgtask', async (request, reply) => {
             setTimeout(() => {
               document.getElementById("KnowledgePopUp").style.display = "block";
               document.getElementById("popup-overlay").style.display = "block";
-            }, 120000);
+            }, 10000);
+            // display button on knowledge module after 4min (2min + 2min)
+            setTimeout(function() {
+            document.getElementById("popupBtn").style.display = "block";
+            }, 240000);
         }
-
-      // display button on knowledge module after 4min (2min + 2min)
-        setTimeout(function() {
-        document.getElementById("popupBtn").style.display = "block";
-      }, 240000);
+        
+        // 5 min
+        if (category == 1 && bgtask_after_training === 0) {
+          setTimeout(() => {
+              document.getElementById("TrainingPopUp").style.display = "block";
+              document.getElementById("popup-overlay").style.display = "block";
+          }, 300000);
+        }
       
       /* This variable represents time at which the bgtask should end. If the user
       is doing this task after doing the training module, only 1 min left. Else, we
-      compute 15 min (if the case of category 2 users) */
+      compute 10 min (if the case of category 2 users) */
       var end_time;
       var figma_link;
       if (bgtask_after_training === 0) {
@@ -355,12 +360,10 @@ fastify.get('/bgtask', async (request, reply) => {
           document.getElementById("popup-overlay").style.display = "none";
           document.getElementById("youtubeFrame").remove();
           // 1 min, counting only when user closed the overlay
-          if (category === 0 || category === 1) {
-              setTimeout(() => {
+          setTimeout(() => {
                 document.getElementById("TrainingPopUp").style.display = "block";
                 document.getElementById("popup-overlay").style.display = "block";
-              }, 60000);
-          }
+          }, 60000);
       }
 
       </script>
