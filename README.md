@@ -1,6 +1,6 @@
-  The aim of this study is to evaluate the efficacy of personalized and human-centered inter-
+  The aim of this study is to evaluate the efficacy of personalized and human-centered inter
 ventions in assisting users in identifying phishing emails. While previous research has identified
-various human factors that contribute to susceptibility to phishing attacks, limited knowledge ex-
+various human factors that contribute to susceptibility to phishing attacks, limited knowledge ex
 ists on the most effective interventions for different user categories. This study seeks to determine
 the effectiveness of diverse interventions based on user groups categorized by prior knowledge on
 phishing, frequency of email use and email rate as influencing factors in the literature. Specifically,
@@ -14,4 +14,7 @@ fully functional Gmail plug-in or an application that incorporates the identifie
 tions.
 
 *server.js*: contains all the code used during the study to run the server on the web app 
-
+*anti-phishing-tool-data-analysis.ipynb*: contains all the code used for the analysis of the study results
+*training_module.pdf*: contains the slides used for the training module of the study
+*post-intervention_questionnaire.pdf*: contains the questions used for the pre-intervention questionnaire
+*pre-intervention_questionnaire.pdf*: contains the questions used for the post-intervention questionnaire
