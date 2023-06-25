@@ -10,5 +10,8 @@ I investigated if awareness alerts were effective for all users, including those
 Additionally, the study explored potential correlations between personality traits, demographic
 factors, and the effectiveness of the interventions. The findings from this study could inform the
 further development of a personalized anti-phishing tool, potentially leading to the creation of a
-fully functional Gmail plug-in or an application that incorporates the identified effective interven-
+fully functional Gmail plug-in or an application that incorporates the identified effective interven
 tions.
+
+_server.js_: contains all the code used during the study to run the server on the web app 
+
