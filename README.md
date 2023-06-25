@@ -13,8 +13,8 @@ further development of a personalized anti-phishing tool, potentially leading to
 fully functional Gmail plug-in or an application that incorporates the identified effective interven
 tions.
 
-*server.js*: contains all the code used during the study to run the server on the web app 
-*anti-phishing-tool-data-analysis.ipynb*: contains all the code used for the analysis of the study results
-*training_module.pdf*: contains the slides used for the training module of the study
-*post-intervention_questionnaire.pdf*: contains the questions used for the pre-intervention questionnaire
-*pre-intervention_questionnaire.pdf*: contains the questions used for the post-intervention questionnaire
+*server.js*: contains all the code used during the study to run the server on the web app. \\
+*anti-phishing-tool-data-analysis.ipynb*: contains all the code used for the analysis of the study results. \\
+*training_module.pdf*: contains the slides used for the training module of the study. \\
+*post-intervention_questionnaire.pdf*: contains the questions used for the pre-intervention questionnaire. \\
+*pre-intervention_questionnaire.pdf*: contains the questions used for the post-intervention questionnaire. \\
